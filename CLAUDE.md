@@ -8,12 +8,12 @@ Read `VISION.md` first, then `PLAN.md`. Work happens on the **`web`** branch.
   never commit to it; it moves only by pulling upstream.
 - `web` = master + the web interface + everything in PLAN.md.
 - The deep analysis docs (HLD with file:line defect assessment, DECISIONS DD
-  log, style guide) live in the companion project
+  log) live in the companion project
   `~/Projects/freemind-code/` — read them there; do not copy them here.
 
 ## Writing style
 
-Documentation follows `~/Projects/freemind-code/BOBBYC_STYLE.md`: Canadian
+Documentation follows `~/Projects/standards/BOBBYC_STYLE.md`: Canadian
 English, one idea per paragraph, verb-led bullets, quantified claims, every
 code claim cited as `file:line`, decisions Bobby owns marked ⚖ and left for
 his approval.
