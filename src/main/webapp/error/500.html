@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>500 - Internal Server Error</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .error-container {
+            text-align: center;
+            padding: 2rem;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 {
+            color: #e74c3c;
+            margin-top: 0;
+        }
+        p {
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .error-details {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+            font-family: monospace;
+            text-align: left;
+            font-size: 0.9rem;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+        .toggle-details {
+            background: none;
+            border: none;
+            color: #3498db;
+            cursor: pointer;
+            padding: 0;
+            margin: 0.5rem 0;
+        }
+        .toggle-details:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <h1>500</h1>
+        <h2>Internal Server Error</h2>
+        <p>Sorry, something went wrong on our end. We're working to fix the issue.</p>
+        <p>Please try again later or contact support if the problem persists.</p>
+        
+        <button class="toggle-details" onclick="toggleErrorDetails()">Show details</button>
+        <div id="errorDetails" class="error-details">
+            <p><strong>Error:</strong> <span id="errorMessage">An unexpected error occurred</span></p>
+            <p><strong>Path:</strong> <span id="errorPath">Unknown</span></p>
+        </div>
+        
+        <p><a href="/">← Back to Home</a></p>
+    </div>
+
+    <script>
+        // Extract error details from URL
+        document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const errorMessage = urlParams.get('message') || 'An unexpected error occurred';
+            const errorPath = urlParams.get('path') || window.location.pathname;
+            
+            document.getElementById('errorMessage').textContent = decodeURIComponent(errorMessage);
+            document.getElementById('errorPath').textContent = decodeURIComponent(errorPath);
+        });
+        
+        function toggleErrorDetails() {
+            const details = document.getElementById('errorDetails');
+            const button = document.querySelector('.toggle-details');
+            
+            if (details.style.display === 'block') {
+                details.style.display = 'none';
+                button.textContent = 'Show details';
+            } else {
+                details.style.display = 'block';
+                button.textContent = 'Hide details';
+            }
+        }
+    </script>
+</body>
+</html>

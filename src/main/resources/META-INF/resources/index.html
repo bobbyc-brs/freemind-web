@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreeMind Web</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>FreeMind Web</h1>
+            <div class="toolbar">
+                <button id="newMap">New Map</button>
+                <button id="saveMap">Save</button>
+                <input type="file" id="fileInput" accept=".mm" style="display: none;">
+                <button id="openMap">Open</button>
+            </div>
+        </header>
+        <div class="main-content">
+            <div id="mindmap-container">
+                <canvas id="mindmap-canvas"></canvas>
+            </div>
+        </div>
+        <div id="status-bar">
+            <span id="connection-status">Disconnected</span>
+            <span id="status-message">Ready</span>
+        </div>
+    </div>
+
+    <script src="js/websocket-client.js"></script>
+    <script src="js/mindmap-renderer.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

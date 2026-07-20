@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreeMind Web - Collaborative Mind Mapping</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+        /* Header styles */
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            font-size: 0.9rem;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-connected {
+            background-color: #4CAF50;
+        }
+        
+        .status-connecting {
+            background-color: #FFC107;
+        }
+        
+        .status-disconnected {
+            background-color: #f44336;
+        }
+        
+        .status-error {
+            background-color: #f44336;
+        }
+        .status-message {
+            margin-left: 10px;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.85rem;
+        }
+        /* Main content */
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        /* Toolbar */
+        .toolbar {
+            background-color: #34495e;
+            padding: 10px 15px;
+            display: flex;
+            gap: 10px;
+            border-bottom: 1px solid #2c3e50;
+        }
+        
+        .toolbar button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: background-color 0.2s;
+        }
+        
+        .toolbar button:hover {
+            background-color: #2980b9;
+        }
+        
+        .toolbar button i {
+            font-size: 1rem;
+        }
+        
+        /* Mind map container */
+        #mindmap-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background-color: #f9f9f9;
+        }
+        
+        #mindmap-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            cursor: move;
+        }
+        
+        /* Status bar */
+        .status-bar {
+            background-color: #ecf0f1;
+            border-top: 1px solid #ddd;
+            padding: 5px 15px;
+            font-size: 0.85rem;
+            color: #7f8c8d;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        /* Loading overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            color: white;
+            font-size: 1.2rem;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .toolbar {
+                flex-wrap: wrap;
+            }
+            
+            .toolbar button {
+                padding: 6px 10px;
+                font-size: 0.8rem;
+            }
+        }
+        /* Node styles (will be applied by the mind map renderer) */
+        .node {
+            position: absolute;
+            min-width: 120px;
+            min-height: 40px;
+            background-color: white;
+            border: 2px solid #3498db;
+            border-radius: 6px;
+            padding: 8px 12px;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: box-shadow 0.2s, transform 0.2s;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            user-select: none;
+        }
+        
+        .node:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+            transform: translateY(-1px);
+        }
+        
+        .node.selected {
+            border-color: #e74c3c;
+            box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.3);
+        }
+        
+        .node.dragging {
+            opacity: 0.8;
+            z-index: 100;
+        }
+        
+        .node-text {
+            pointer-events: none;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        
+        .node-connection {
+            position: absolute;
+            background-color: #95a5a6;
+            transform-origin: 0 0;
+            z-index: -1;
+        }
+        
+        /* Context menu */
+        .context-menu {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            min-width: 150px;
+            display: none;
+        }
+        
+        .context-menu.visible {
+            display: block;
+        }
+        
+        .context-menu-item {
+            padding: 8px 15px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #333;
+        }
+        
+        .context-menu-item:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .context-menu-divider {
+            height: 1px;
+            background-color: #eee;
+            margin: 4px 0;
+        }
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+    </style>
+    <!-- Load Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="logo">FreeMind Web</div>
+        <div class="connection-status">
+            <span class="status-indicator status-disconnected"></span>
+            <span class="status-message">Connecting to server...</span>
+        </div>
+    </header>
+    
+    <!-- Toolbar -->
+    <div class="toolbar">
+        <button id="new-map" title="New Map">
+            <i class="fas fa-file"></i> New
+        </button>
+        <button id="save-map" title="Save Map">
+            <i class="fas fa-save"></i> Save
+        </button>
+        <button id="open-map" title="Open Map">
+            <i class="fas fa-folder-open"></i> Open
+        </button>
+        <input type="file" id="file-input" accept=".mm,.freemind" style="display: none;">
+        <div style="flex-grow: 1;"></div>
+        <button id="zoom-in" title="Zoom In">
+            <i class="fas fa-search-plus"></i>
+        </button>
+        <button id="zoom-out" title="Zoom Out">
+            <i class="fas fa-search-minus"></i>
+        </button>
+        <button id="zoom-fit" title="Fit to Screen">
+            <i class="fas fa-expand"></i>
+        </button>
+    </div>
+    
+    <!-- Main content area -->
+    <div class="main-content">
+        <!-- Mind map container -->
+        <div id="mindmap-container">
+            <canvas id="mindmap-canvas"></canvas>
+        </div>
+    </div>
+    
+    <!-- Status bar -->
+    <div class="status-bar">
+        <div id="status-message">Ready</div>
+        <div id="zoom-level">100%</div>
+    </div>
+    
+    <!-- Context menu (hidden by default) -->
+    <div id="context-menu" class="context-menu">
+        <div class="context-menu-item" data-action="add-child">
+            <i class="fas fa-plus"></i> Add Child Node
+        </div>
+        <div class="context-menu-item" data-action="add-sibling">
+            <i class="fas fa-plus-circle"></i> Add Sibling Node
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" data-action="edit">
+            <i class="fas fa-edit"></i> Edit
+        </div>
+        <div class="context-menu-item" data-action="delete">
+            <i class="fas fa-trash"></i> Delete
+        </div>
+    </div>
+    
+    <!-- Loading overlay (initially hidden) -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin fa-3x"></i>
+            <p>Loading...</p>
+        </div>
+    </div>
+    
+    <!-- Load JavaScript files -->
+    <script src="js/websocket-client.js"></script>
+    <script src="js/mindmap-renderer.js"></script>
+    <script src="js/app.js"></script>
+    
+    <script>
+        // Initialize the application when the DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM fully loaded and parsed');
+            
+            // The main application will be initialized by app.js
+            // which creates the FreeMindApp instance and sets up all the event handlers
+        });
+    </script>
+</body>
+</html>
