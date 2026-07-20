@@ -51,3 +51,6 @@ freemind/version.properties
 
 # file is generated:
 freemind/lib/bindings.jar
+
+# Maven build output for the web module — regeneratable (mvn clean package)
+target/
