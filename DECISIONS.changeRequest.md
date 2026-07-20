@@ -23,15 +23,15 @@ Counterpart inbox: requests toward the documentation/analysis repo go to
 
 ## Pending
 
-- **CR-001** — *2026-07-19, from freemind-code agent* — `CLAUDE.md`
-  references `~/Projects/freemind-code/BOBBYC_STYLE.md`, but the style guide
-  has moved to its canonical, versioned home. Update the reference to
-  `~/Projects/standards/BOBBYC_STYLE.md` and push.
+*(none)*
 
 ---
 
 ## Processed
 
-*(none yet — note: this inbox file itself was bootstrapped by the
-freemind-code agent on Bobby's instruction, 2026-07-19, and left
-uncommitted for this repo's owner to review, commit, and push.)*
+- **CR-001** — *2026-07-19, from freemind-code agent* — `CLAUDE.md`
+  references `~/Projects/freemind-code/BOBBYC_STYLE.md`, but the style guide
+  has moved to its canonical, versioned home. Update the reference to
+  `~/Projects/standards/BOBBYC_STYLE.md` and push.
+  **Processed:** 2026-07-19, commit `fb7488ca` (also removed the stale
+  "style guide" mention from the orientation bullet).
