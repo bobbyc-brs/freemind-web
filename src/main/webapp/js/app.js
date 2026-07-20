@@ -1,58 +1,65 @@
-// Main application class
+// Main application class.
+// Message type names come from /js/message-types.js, generated server-side
+// from the MindMapMessage.MessageType enum — the single constants source.
 class FreeMindApp {
-    constructor() {
-        this.mindMapRenderer = mindMapRenderer;
+    constructor(renderer, wsClient) {
+        this.mindMapRenderer = renderer;
+        this.wsClient = wsClient;
         this.currentMapId = null;
         this.isConnected = false;
-        
-        // Initialize WebSocket client
-        this.wsClient = window.wsClient || new WebSocketClient();
-        
-        // Set up event listeners
+
         this.setupEventListeners();
-        
-        // Initialize with sample data if not connected to a server
-        // In a real app, we'd wait for the WebSocket connection
+    }
+
+    /**
+     * Show the local sample map, then connect. Connection is on demand —
+     * nothing touches the network until start() is called.
+     */
+    start() {
         this.initializeSampleData();
+        this.wsClient.connect();
     }
 
     /**
      * Set up event listeners for the application
      */
     setupEventListeners() {
-        // Toolbar buttons
-        document.getElementById('newMap').addEventListener('click', () => this.newMap());
-        document.getElementById('saveMap').addEventListener('click', () => this.saveMap());
-        document.getElementById('openMap').addEventListener('click', () => {
-            document.getElementById('fileInput').click();
+        // Toolbar buttons (ids match index.html)
+        document.getElementById('new-map').addEventListener('click', () => this.newMap());
+        document.getElementById('save-map').addEventListener('click', () => this.saveMap());
+        document.getElementById('open-map').addEventListener('click', () => {
+            document.getElementById('file-input').click();
         });
 
         // File input handler
-        document.getElementById('fileInput').addEventListener('change', (e) => this.handleFileSelect(e));
+        document.getElementById('file-input').addEventListener('change', (e) => this.handleFileSelect(e));
 
-        // WebSocket event handlers
+        // WebSocket connection events
         this.wsClient
             .on('connected', () => this.handleWebSocketConnected())
             .on('disconnected', () => this.handleWebSocketDisconnected())
             .on('error', (error) => this.handleWebSocketError(error))
             .on('status', (status) => this.updateConnectionStatus(status));
-            
-        // WebSocket message handlers
+
+        // WebSocket message events (kebab-case of the MessageType names)
         this.wsClient
-            .on('welcome', (message) => this.handleWelcomeMessage(message))
-            .on('map-data', (message) => this.handleMapData(message))
-            .on('node-added', (message) => this.handleNodeAdded(message))
+            .on('system', (message) => this.handleSystemMessage(message))
+            .on('map-loaded', (message) => this.handleMapLoaded(message))
+            .on('node-created', (message) => this.handleNodeCreated(message))
             .on('node-updated', (message) => this.handleNodeUpdated(message))
-            .on('node-deleted', (message) => this.handleNodeDeleted(message));
-            
+            .on('node-moved', (message) => this.handleNodeMoved(message))
+            .on('node-deleted', (message) => this.handleNodeDeleted(message))
+            .on('user-connected', (message) => this.showStatus(message.text))
+            .on('user-disconnected', (message) => this.showStatus(message.text));
+
         // Node interaction handlers
         this.mindMapRenderer.onNodeClick = (node) => this.handleNodeClick(node);
-        this.mindMapRenderer.onNodeUpdate = (node) => this.handleNodeUpdate(node);
-        
+        this.mindMapRenderer.onNodeMove = (node) => this.handleNodeMove(node);
+
         // Window resize handler
-        window.addEventListener('resize', () => this.handleWindowResize());
+        window.addEventListener('resize', () => this.mindMapRenderer.onResize());
     }
-    
+
     /**
      * Handle WebSocket connection established
      */
@@ -60,15 +67,8 @@ class FreeMindApp {
         console.log('WebSocket connected');
         this.isConnected = true;
         this.updateConnectionStatus({ status: 'connected', message: 'Connected to server' });
-        
-        // Request initial map data if we have a map ID, otherwise create a new map
-        if (this.currentMapId) {
-            this.loadMap(this.currentMapId);
-        } else {
-            this.createNewMap();
-        }
     }
-    
+
     /**
      * Handle WebSocket disconnection
      */
@@ -77,67 +77,89 @@ class FreeMindApp {
         this.isConnected = false;
         this.updateConnectionStatus({ status: 'disconnected', message: 'Disconnected from server' });
     }
-    
+
     /**
      * Handle WebSocket errors
      */
     handleWebSocketError(error) {
         console.error('WebSocket error:', error);
-        this.updateConnectionStatus({ 
-            status: 'error', 
-            message: `Connection error: ${error.message || 'Unknown error'}` 
+        this.updateConnectionStatus({
+            status: 'error',
+            message: `Connection error: ${error.message || 'Unknown error'}`
         });
     }
-    
+
     /**
-     * Update the connection status UI
+     * Update the connection indicator and message in the header
      */
     updateConnectionStatus(status) {
+        const indicator = document.getElementById('connection-indicator');
+        if (indicator) {
+            indicator.className = `status-indicator status-${status.status}`;
+        }
         const statusElement = document.getElementById('connection-status');
         if (statusElement) {
             statusElement.textContent = status.message;
-            statusElement.className = `status-${status.status}`;
         }
     }
-    
+
     /**
-     * Handle welcome message from server
+     * Show a transient message in the status bar
      */
-    handleWelcomeMessage(message) {
-        console.log('Server welcome:', message);
-        // Server might send initial data or configuration
+    showStatus(text) {
+        const statusMessage = document.getElementById('status-message');
+        if (statusMessage) {
+            statusMessage.textContent = text;
+        }
     }
-    
+
     /**
-     * Handle incoming map data
+     * Handle server welcome / notifications
      */
-    handleMapData(message) {
+    handleSystemMessage(message) {
+        console.log('Server message:', message);
+        this.showStatus(message.text);
+    }
+
+    /**
+     * Handle incoming map data (arrives with M2's server-side map model)
+     */
+    handleMapLoaded(message) {
         console.log('Received map data:', message);
         if (message.data && message.data.nodes) {
-            this.currentMapId = message.mapId || this.currentMapId;
+            this.currentMapId = message.data.mapId || this.currentMapId;
             this.mindMapRenderer.setNodes(message.data.nodes);
-            this.updateDocumentTitle();
+            this.updateDocumentTitle(message.data.title);
         }
     }
-    
+
     /**
      * Handle new node added by another client
      */
-    handleNodeAdded(message) {
+    handleNodeCreated(message) {
         if (message.data) {
             this.mindMapRenderer.addNode(message.data);
         }
     }
-    
+
     /**
      * Handle node updated by another client
      */
     handleNodeUpdated(message) {
-        if (message.data && message.data.id) {
-            this.mindMapRenderer.updateNode(message.data.id, message.data);
+        if (message.nodeId && message.data) {
+            this.mindMapRenderer.updateNode(message.nodeId, message.data);
         }
     }
-    
+
+    /**
+     * Handle node moved by another client
+     */
+    handleNodeMoved(message) {
+        if (message.nodeId && message.x !== undefined && message.y !== undefined) {
+            this.mindMapRenderer.updateNode(message.nodeId, { x: message.x, y: message.y });
+        }
+    }
+
     /**
      * Handle node deleted by another client
      */
@@ -146,166 +168,71 @@ class FreeMindApp {
             this.mindMapRenderer.removeNode(message.nodeId);
         }
     }
-    
+
     /**
      * Handle node click event
      */
     handleNodeClick(node) {
         console.log('Node clicked:', node);
-        // You can add node editing UI here
-    }
-    
-    /**
-     * Handle node update from the renderer
-     */
-    handleNodeUpdate(node) {
-        if (!this.isConnected) return;
-        
-        this.wsClient.send({
-            type: 'NODE_UPDATED',
-            mapId: this.currentMapId,
-            data: node
-        });
-    }
-    
-    /**
-     * Handle window resize
-     */
-    handleWindowResize() {
-        this.mindMapRenderer.onResize();
+        // Node editing UI comes later
     }
 
     /**
-     * Initialize with sample data for demonstration purposes
+     * Local node drag → relay the new position to the other clients
+     */
+    handleNodeMove(node) {
+        if (!this.isConnected) return;
+
+        this.wsClient.send({
+            type: MessageType.NODE_MOVED,
+            nodeId: node.id,
+            x: node.x,
+            y: node.y
+        });
+    }
+
+    /**
+     * Initialize with sample data for demonstration purposes.
+     * Both browsers get the same node ids, so relayed operations apply
+     * cleanly until M2 introduces the real server-side map.
      */
     initializeSampleData() {
-        // Only use sample data if not connected to a server
-        if (this.isConnected) return;
-        
         console.log('Initializing with sample data');
-        
+
+        const now = new Date().toISOString();
         const sampleNodes = [
-            {
-                id: '1',
-                text: 'Central Topic',
-                x: 400,
-                y: 300,
-                width: 140,
-                height: 50,
-                isRoot: true,
-                color: '#4a90e2',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            },
-            {
-                id: '2',
-                text: 'Main Topic 1',
-                parentId: '1',
-                x: 200,
-                y: 450,
-                width: 120,
-                height: 40,
-                color: '#50c878',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            },
-            {
-                id: '3',
-                text: 'Main Topic 2',
-                parentId: '1',
-                x: 500,
-                y: 450,
-                width: 120,
-                height: 40,
-                color: '#ff7f50',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            },
-            {
-                id: '4',
-                text: 'Sub Topic 1',
-                parentId: '2',
-                x: 100,
-                y: 550,
-                width: 100,
-                height: 35,
-                color: '#ffd700',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            },
-            {
-                id: '5',
-                text: 'Sub Topic 2',
-                parentId: '2',
-                x: 220,
-                y: 550,
-                width: 100,
-                height: 35,
-                color: '#ff69b4',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString()
-            }
+            { id: '1', text: 'Central Topic', x: 400, y: 300, width: 140, height: 50,
+              isRoot: true, color: '#4a90e2', createdAt: now, updatedAt: now },
+            { id: '2', text: 'Main Topic 1', parentId: '1', x: 200, y: 450, width: 120,
+              height: 40, color: '#50c878', createdAt: now, updatedAt: now },
+            { id: '3', text: 'Main Topic 2', parentId: '1', x: 500, y: 450, width: 120,
+              height: 40, color: '#ff7f50', createdAt: now, updatedAt: now },
+            { id: '4', text: 'Sub Topic 1', parentId: '2', x: 100, y: 550, width: 100,
+              height: 35, color: '#ffd700', createdAt: now, updatedAt: now },
+            { id: '5', text: 'Sub Topic 2', parentId: '2', x: 220, y: 550, width: 100,
+              height: 35, color: '#ff69b4', createdAt: now, updatedAt: now }
         ];
 
         this.mindMapRenderer.setNodes(sampleNodes);
         this.updateDocumentTitle('Sample Mind Map');
     }
-    
+
     /**
-     * Create a new mind map
-     */
-    createNewMap() {
-        if (this.isConnected) {
-            this.wsClient.send({
-                type: 'CREATE_MAP',
-                data: {
-                    title: 'New Mind Map',
-                    description: 'Created ' + new Date().toLocaleString()
-                }
-            });
-        } else {
-            // If not connected, just clear the current map
-            this.mindMapRenderer.clear();
-            this.currentMapId = null;
-            this.initializeSampleData();
-        }
-    }
-    
-    /**
-     * Load a mind map by ID
-     */
-    loadMap(mapId) {
-        if (!mapId) return;
-        
-        if (this.isConnected) {
-            this.wsClient.send({
-                type: 'GET_MAP',
-                mapId: mapId
-            });
-        }
-    }
-    
-    /**
-     * Save the current mind map
+     * Save the current mind map. Real persistence arrives with M2's
+     * serializer; until then the server answers honestly that it can't.
      */
     saveMap() {
-        if (!this.isConnected) {
-            alert('Cannot save: Not connected to server');
-            return;
-        }
-        
-        const nodes = this.mindMapRenderer.getNodes();
-        
-        this.wsClient.send({
-            type: 'SAVE_MAP',
-            mapId: this.currentMapId,
-            data: {
-                nodes: nodes,
-                updatedAt: new Date().toISOString()
-            }
-        });
+        fetch('/api/save', { method: 'POST' })
+            .then((response) => response.json())
+            .then((result) => {
+                this.showStatus(result.message || result.status);
+            })
+            .catch((error) => {
+                console.error('Save failed:', error);
+                this.showStatus('Save failed: ' + error.message);
+            });
     }
-    
+
     /**
      * Update the document title with the current map name
      */
@@ -316,25 +243,12 @@ class FreeMindApp {
 
     newMap() {
         if (confirm('Create a new mind map? Any unsaved changes will be lost.')) {
+            this.currentMapId = null;
             this.mindMapRenderer.setNodes([
-                {
-                    id: '1',
-                    text: 'Central Topic',
-                    x: 400,
-                    y: 300,
-                    width: 140,
-                    height: 50,
-                    isRoot: true
-                }
+                { id: '1', text: 'Central Topic', x: 400, y: 300, width: 140, height: 50, isRoot: true }
             ]);
+            this.updateDocumentTitle('New Mind Map');
         }
-    }
-
-    saveMap() {
-        // In a real app, this would send the current map to the server
-        console.log('Saving map...');
-        // For now, just show a message
-        alert('Map saved successfully!');
     }
 
     handleFileSelect(event) {
@@ -343,15 +257,10 @@ class FreeMindApp {
 
         const reader = new FileReader();
         reader.onload = (e) => {
-            try {
-                // In a real app, this would parse the FreeMind .mm file format
-                // For now, we'll just log the file content
-                console.log('File content:', e.target.result);
-                alert('File loaded successfully! (Not actually parsed in this demo)');
-            } catch (error) {
-                console.error('Error parsing file:', error);
-                alert('Error loading file: ' + error.message);
-            }
+            // .mm parsing arrives with M2's server-side serializer; the
+            // browser never reimplements the format.
+            console.log('File selected:', file.name, '-', e.target.result.length, 'bytes');
+            this.showStatus('Opening .mm files arrives with server-side save/open');
         };
         reader.readAsText(file);
     }
@@ -360,27 +269,20 @@ class FreeMindApp {
 // Initialize the application when the DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     try {
-        // Initialize the mind map renderer
-        const canvas = document.getElementById('mindmap-canvas');
-        if (!canvas) {
-            throw new Error('Mind map canvas element not found');
-        }
-        
-        // Create the renderer
-        const renderer = new MindMapRenderer(canvas);
-        
-        // Initialize the application
-        const app = new FreeMindApp(renderer);
-        
-        // Expose app and renderer globally for debugging
+        const renderer = new MindMapRenderer('mindmap-canvas');
+        const wsClient = new WebSocketClient();
+        const app = new FreeMindApp(renderer, wsClient);
+
+        // Expose for debugging
         window.app = app;
         window.mindMapRenderer = renderer;
-        
+        window.wsClient = wsClient;
+
+        app.start();
         console.log('FreeMind Web application initialized');
     } catch (error) {
         console.error('Failed to initialize application:', error);
-        
-        // Show error message to user
+
         const errorContainer = document.createElement('div');
         errorContainer.style.position = 'fixed';
         errorContainer.style.top = '0';
@@ -392,15 +294,14 @@ document.addEventListener('DOMContentLoaded', () => {
         errorContainer.style.borderBottom = '1px solid #ef9a9a';
         errorContainer.style.fontFamily = 'Arial, sans-serif';
         errorContainer.style.zIndex = '10000';
-        
+
         errorContainer.innerHTML = '<h2>Application Error</h2>' +
             '<p>' + (error.message || 'An unknown error occurred') + '</p>' +
             '<p>Please check the console for more details.</p>' +
             '<button onclick="location.reload()" style="margin-top: 10px; padding: 5px 10px;">' +
             '    Reload Page' +
             '</button>';
-        
-        
+
         document.body.prepend(errorContainer);
     }
 });

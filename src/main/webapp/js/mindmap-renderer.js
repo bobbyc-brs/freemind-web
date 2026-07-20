@@ -1,31 +1,46 @@
 class MindMapRenderer {
-    constructor(canvasId) {
-        this.canvas = document.getElementById(canvasId);
+    constructor(canvasOrId) {
+        this.canvas = typeof canvasOrId === 'string'
+            ? document.getElementById(canvasOrId)
+            : canvasOrId;
+        if (!this.canvas) {
+            throw new Error('MindMapRenderer: canvas not found: ' + canvasOrId);
+        }
         this.ctx = this.canvas.getContext('2d');
         this.scale = 1;
         this.offset = { x: 0, y: 0 };
-        this.isDragging = false;
+        this.isDragging = false;      // panning
+        this.draggedNode = null;      // node being dragged
+        this.dragOffset = { x: 0, y: 0 };
         this.lastMousePos = { x: 0, y: 0 };
         this.nodes = [];
         this.selectedNode = null;
         this.hoveredNode = null;
-        
+
         this.setupEventListeners();
         this.resizeCanvas();
         window.addEventListener('resize', () => this.resizeCanvas());
     }
-    
+
     setupEventListeners() {
-        // Panning
         this.canvas.addEventListener('mousedown', (e) => {
-            if (e.button === 1 || (e.button === 0 && e.ctrlKey)) { // Middle mouse or Ctrl+Left
+            if (e.button === 1 || (e.button === 0 && e.ctrlKey)) { // Middle mouse or Ctrl+Left: pan
                 this.isDragging = true;
                 this.lastMousePos = this.getMousePos(e);
                 this.canvas.style.cursor = 'grabbing';
                 e.preventDefault();
+            } else if (e.button === 0) { // Plain left on a node: drag the node
+                const mousePos = this.getMousePos(e);
+                const node = this.findNodeAt(mousePos.x, mousePos.y);
+                if (node) {
+                    this.draggedNode = node;
+                    this.dragOffset = { x: mousePos.x - node.x, y: mousePos.y - node.y };
+                    this.canvas.style.cursor = 'grabbing';
+                    e.preventDefault();
+                }
             }
         });
-        
+
         document.addEventListener('mousemove', (e) => {
             if (this.isDragging) {
                 const mousePos = this.getMousePos(e);
@@ -34,10 +49,23 @@ class MindMapRenderer {
                 this.lastMousePos = mousePos;
                 this.render();
                 e.preventDefault();
+            } else if (this.draggedNode) {
+                const mousePos = this.getMousePos(e);
+                this.draggedNode.x = mousePos.x - this.dragOffset.x;
+                this.draggedNode.y = mousePos.y - this.dragOffset.y;
+                this.render();
+                if (this.onNodeMove) {
+                    this.onNodeMove(this.draggedNode);
+                }
+                e.preventDefault();
             }
         });
-        
+
         document.addEventListener('mouseup', () => {
+            if (this.draggedNode && this.onNodeMove) {
+                this.onNodeMove(this.draggedNode); // final position
+            }
+            this.draggedNode = null;
             this.isDragging = false;
             this.canvas.style.cursor = 'default';
         });
@@ -105,21 +133,22 @@ class MindMapRenderer {
         }
     }
     
-    handleNodeClick(x, y) {
-        // Find if a node was clicked
+    findNodeAt(x, y) {
         for (const node of this.nodes) {
             if (this.isPointInNode(x, y, node)) {
-                this.selectedNode = node;
-                this.render();
-                // Emit event or call callback
-                if (this.onNodeClick) {
-                    this.onNodeClick(node);
-                }
-                return;
+                return node;
             }
         }
-        this.selectedNode = null;
+        return null;
+    }
+
+    handleNodeClick(x, y) {
+        const node = this.findNodeAt(x, y);
+        this.selectedNode = node;
         this.render();
+        if (node && this.onNodeClick) {
+            this.onNodeClick(node);
+        }
     }
     
     handleNodeHover(x, y) {
@@ -237,14 +266,29 @@ class MindMapRenderer {
         ctx.quadraticCurveTo(x, y, x + radius, y);
         ctx.closePath();
     }
+    removeNode(id) {
+        const index = this.nodes.findIndex(n => n.id === id);
+        if (index >= 0) {
+            this.nodes.splice(index, 1);
+            this.render();
+        }
+    }
+
+    getNodes() {
+        return this.nodes;
+    }
+
+    clear() {
+        this.nodes = [];
+        this.selectedNode = null;
+        this.hoveredNode = null;
+        this.render();
+    }
+
+    onResize() {
+        this.resizeCanvas();
+    }
 }
 
-// Create a global instance
-const mindMapRenderer = new MindMapRenderer('mindmap-canvas');
-
-// Example usage:
-// mindMapRenderer.setNodes([
-//     { id: '1', text: 'Root', x: 200, y: 200, width: 120, height: 40 },
-//     { id: '2', text: 'Child 1', parentId: '1', x: 100, y: 300, width: 100, height: 35 },
-//     { id: '3', text: 'Child 2', parentId: '1', x: 250, y: 300, width: 100, height: 35 }
-// ]);
+// No instance at script load — the app constructs one when the DOM is ready
+window.MindMapRenderer = MindMapRenderer;

@@ -62,7 +62,7 @@ Each independently shippable; each lands with its exit test executable.
 |---|---|---|---|
 | Clean repo: upstream master + web branch on GitHub | Done | 2026-07-19 | old history archived in freemind-code |
 | VISION.md / PLAN.md / CLAUDE.md | Done | 2026-07-19 | this commit |
-| M1 relay | Not started | | |
+| M1 relay | Done | 2026-07-19 | exit test `WebSocketRelayTest` (5 tests) green |
 | M2 core + save | Not started | | spike the Swing-decoupling first |
 | M3 flag sharing | Not started | | merge scope ⚖ |
 | M4 real-time bridge | Not started | | |

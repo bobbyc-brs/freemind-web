@@ -19,15 +19,21 @@ import java.util.UUID;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class MindMapMessage {
+    /**
+     * The single source of truth for message type names, client and server:
+     * AppServlet serves this enum to the browser as /js/message-types.js,
+     * so the two sides cannot drift.
+     */
     public enum MessageType {
-        NODE_CREATED,     // When a new node is created
-        NODE_UPDATED,     // When a node's properties are updated
-        NODE_DELETED,     // When a node is deleted
-        NODE_MOVED,       // When a node is moved to a new position
-        MAP_LOADED,       // When the initial map is loaded
-        ERROR,            // When an error occurs
-        CHAT_MESSAGE,     // For chat messages
-        SYSTEM            // For system notifications
+        NODE_CREATED,      // When a new node is created
+        NODE_UPDATED,      // When a node's properties are updated
+        NODE_DELETED,      // When a node is deleted
+        NODE_MOVED,        // When a node is moved to a new position
+        MAP_LOADED,        // When the initial map is loaded
+        USER_CONNECTED,    // When another client joins
+        USER_DISCONNECTED, // When another client leaves
+        ERROR,             // When an error occurs
+        SYSTEM             // For system notifications
     }
 
     private String messageId;          // Unique ID for the message
